@@ -27,6 +27,8 @@ herdr --remote dev-us --session work
 
 ## 安装
 
+已收录进 DSH 插件市场（[awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)），其他人可以在市场里直接搜 **Herdr** 安装。
+
 本机（Windows）在 PowerShell 里执行：
 
 ```powershell
