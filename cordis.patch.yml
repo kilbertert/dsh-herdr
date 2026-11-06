@@ -1,0 +1,8 @@
+# dsh-herdr bundle patch — mounts the plugin row into the profile boot tree.
+#
+# Install with:
+#   dsh plugin --profile <name> add dsh-herdr
+#
+- insert:
+    - id: herdr
+      name: 'dsh-herdr'
