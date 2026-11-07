@@ -120,6 +120,8 @@ dsh plugin --profile desktop add D:\workspace\dsh-herdr
 | 侧栏里没有 Herdr 入口 | `ctx.slots` 服务不可用（DSH 版本过旧），或插件没启用。看 DSH 日志里有没有 `slots 服务不可用` 的告警。 |
 | 终端能打开但工具条上的会话是 `herdr` | 宿主没有发布当前会话。插件按 `ctx.uiSession.current` → `ctx.sidebarRight.mounted` → `sessions.list` 里 `retainedBy.mainView > 0` 的会话 → `localStorage` 的 `dsh.sessions.current` 依次解析，全都没有时才回退到字面量 `herdr`。PTY 一样能跑，只是不归属某个 DSH 会话。 |
 | 状态显示「连接失败：…」 | 冒号后面是宿主终端服务给出的原始错误（`state.error`），按它定位。 |
+| 状态显示「连接失败：missingTerminal」 | 宿主把 `contentId → terminalId` 存在 `localStorage`（`dsh.terminal.binding.v1.*`）里，DSH 重启后那个进程已经没了，宿主只会一直回这个错、**自己不会清掉旧绑定**。插件检测到后会自动调 `service.close()` 丢弃旧绑定并重新分配一个 PTY，无需手动处理。 |
+| 切走再切回 Herdr 会闪一下黑屏 / 「正在连接…」 | 视图脱离 DOM 不会结束进程（宿主契约），但重新挂载时宿主会先重连流。插件会记住上一帧画面并立刻重画，状态显示「正在恢复…」而不是冷启动。 |
 | 主题色不对 | 颜色是从页面的 `--dsw-*` CSS 变量读的，跟随 DSH 主题。 |
 
 ## 诊断记录
