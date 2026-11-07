@@ -78,7 +78,8 @@ var COMMAND = "herdr --remote dev --session work";
 | 页面显示「没有提供宿主终端服务」 | 当前 DSH 部署没有 `ctx.webTerminals`（web profile 应该有）。 |
 | 页面打开了但 herdr 没启动 | 终端还没拿到输入控制权（`writable`）。点「重新执行」。 |
 | 侧栏里没有 Herdr 入口 | `ctx.slots` 服务不可用（DSH 版本过旧），或插件没启用。看 DSH 日志里有没有 `slots 服务不可用` 的告警。 |
-| 终端能打开但工具条上的会话是 `herdr` | 宿主没有发布当前会话（左栏是全局面板，DSH 只在右侧栏挂载座位时公布 `ctx.sidebarRight.mounted`）。不影响使用：PTY 一样能跑，只是不归属某个 DSH 会话。 |
+| 终端能打开但工具条上的会话是 `herdr` | 宿主没有发布当前会话。插件按 `ctx.uiSession.current` → `ctx.sidebarRight.mounted` → `sessions.list` 里 `retainedBy.mainView > 0` 的会话依次解析，全都没有时才回退到字面量 `herdr`。PTY 一样能跑，只是不归属某个 DSH 会话。 |
+| 状态显示「连接失败：…」 | 冒号后面是宿主终端服务给出的原始错误（`state.error`），按它定位。 |
 | 主题色不对 | 颜色是从页面的 `--dsw-*` CSS 变量读的，跟随 DSH 主题。 |
 
 ## xterm 资源从哪来
