@@ -52,9 +52,12 @@ dsh plugin --profile desktop add D:\workspace\dsh-herdr
 ## 使用
 
 - 左侧边栏点 **Herdr** → 页面打开后自动连上 `dev-us` 的 `work` 会话。
+- **重连**：让宿主终端服务重试一次（进程还在就复用，不在就新建一个 PTY）。
 - **重新执行**：重发一次启动命令（终端还活着，等于再敲一遍 `workspace-us`）。
 - **新终端**：换一个新的 contentId，等于开一个全新的 PTY；旧的那一个由插件自己关掉（DSH 的契约是「视图脱离 DOM 不等于进程结束」，所以必须显式关，否则会留下看不见的残留进程）。
 - 切换左侧边栏面板再切回来：PTY 不会重开，也不会重复执行启动命令（客户端复用一个共享视图）。
+
+终端用等宽字体渲染（优先取主题的 `--dsw-font-mono`，否则回退 `Consolas, Cascadia Mono, Courier New`），所以 herdr 的 TUI 界面不会出现字符间距被拉宽的情况。
 
 ## 换一个远程 / 会话
 
