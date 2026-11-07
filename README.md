@@ -2,13 +2,13 @@
 
 把「打开 PowerShell → 输入 `workspace-us` → 连上服务器上的 herdr 会话」变成 DSH 里的一个页面。
 
-安装后，DSH **左侧主边栏**的面板列表里会多出一个 **Herdr** 入口（和「插件 / 插件市场 / 上下文洞察」排在一起）。点进去就是一个内嵌的终端，页面打开时会**自动执行**：
+安装后，DSH **左侧主边栏**的面板列表里会多出一个 **Herdr** 入口（和「插件 / 插件市场 / 上下文洞察」排在一起）。点进去就是一个内嵌的终端，页面打开时会**自动执行**默认连接：
 
 ```
 herdr --remote dev-us --session work
 ```
 
-也就是 PowerShell 里 `workspace-us` 的定义（见 `Microsoft.PowerShell_profile.ps1`）。
+也就是 PowerShell 里 `workspace-us` 的定义（见 `Microsoft.PowerShell_profile.ps1`）。这条命令来自插件配置，可以改成任何机器、任何会话——见下面的[配置](#配置连接列表)。
 
 ## 它是什么 / 不是什么
 
@@ -19,7 +19,7 @@ herdr --remote dev-us --session work
 
 | 部分 | 文件 | 作用 |
 | --- | --- | --- |
-| 宿主半 | `lib/index.js` | 注册 `/herdr` 前缀路由，分发 xterm 的 3 个静态文件（`xterm.js` / `xterm.css` / `addon-fit.js`） |
+| 宿主半 | `lib/index.js` | 注册 `/herdr` 前缀路由，分发 xterm 的 3 个静态文件（`xterm.js` / `xterm.css` / `addon-fit.js`），并按插件配置动态生成 `/herdr/config.json`（连接列表） |
 | 客户端半 | `lib/client.js` | 通过 `ctx.slots` 注册左栏入口（`sidebar.panellist` 图标 + `main` 面板）；用宿主的 `ctx.webTerminals` 服务开 PTY，用 xterm.js 渲染 |
 | 挂载 | `cordis.patch.yml` | 把 `dsh-herdr` 这一行插进 profile 的启动树 |
 
@@ -51,7 +51,8 @@ dsh plugin --profile desktop add D:\workspace\dsh-herdr
 
 ## 使用
 
-- 左侧边栏点 **Herdr** → 页面打开后自动连上 `dev-us` 的 `work` 会话。
+- 左侧边栏点 **Herdr** → 页面打开后自动连上默认连接。
+- 工具条左侧的下拉框（配置了多条连接时才出现）可以切换要连的远程 / 会话；切换等于开一个新终端（旧 PTY 由插件关掉）。
 - **重连**：让宿主终端服务重试一次（进程还在就复用，不在就新建一个 PTY）。
 - **重新执行**：重发一次启动命令（终端还活着，等于再敲一遍 `workspace-us`）。
 - **新终端**：换一个新的 contentId，等于开一个全新的 PTY；旧的那一个由插件自己关掉（DSH 的契约是「视图脱离 DOM 不等于进程结束」，所以必须显式关，否则会留下看不见的残留进程）。
@@ -59,18 +60,54 @@ dsh plugin --profile desktop add D:\workspace\dsh-herdr
 
 终端用等宽字体渲染（优先取主题的 `--dsw-font-mono`，否则回退 `Consolas, Cascadia Mono, Courier New`），所以 herdr 的 TUI 界面不会出现字符间距被拉宽的情况。
 
-## 换一个远程 / 会话
+首次点开的等待也被压到最低：插件在**侧栏加载时**就预热 xterm 资源（最大的 `xterm.js` 约 490 KB），连接列表只是一个本地小请求；PTY 由宿主并行分配，终端在拿到输入控制权前会显示「正在连接…」而不是黑屏。
 
-改 `lib/client.js` 顶部的常量：
+## 配置：连接列表
 
-```js
-var COMMAND = "herdr --remote dev-us --session work";
+插件不再为某一台机器写死命令。宿主半把配置生成成 `/herdr/config.json`，客户端打开页面时读它，工具条据此渲染下拉框并决定自动执行哪一条。
+
+在 profile 的 `cordis.patch.yml` 里给 `dsh-herdr` 这一行加 `config:`：
+
+```yaml
+- id: herdr
+  name: 'dsh-herdr'
+  config:
+    connections:
+      - label: US / work
+        remote: dev-us
+        session: work
+      - label: 本地
+        command: herdr
+      - label: Dev
+        command: herdr --remote dev --session work
 ```
 
-比如想用 `workspace`（`herdr --remote dev --session work`）就改成：
+规则：
 
-```js
-var COMMAND = "herdr --remote dev --session work";
+- `connections` 是数组；每条要么直接给 `command`（原样执行），要么给 `remote` / `session`（宿主半拼成 `herdr --remote <target> [--session <name>]`）。
+- `label` 是下拉框里显示的名字，缺省用 `command`。
+- `command` 为空的条目回退成 `herdr`，不会被跳过。
+- 不写 `connections` 时，可以用扁平的 `remote` / `session` / `command` / `label` 配一条。
+- 什么都不配 → 默认 `herdr`（等价于直接打开一个 Herdr 终端）。
+- 配置缺失或 `/herdr/config.json` 取不到时，页面仍可用（按默认连接执行），不会白屏。
+
+只有 1 条连接时工具条不显示下拉框；多条时才出现。
+
+## 换一个远程 / 会话（不改代码）
+
+按上面的 `config:` 加一条即可。比如想用 `workspace`（`herdr --remote dev --session work`）：
+
+```yaml
+- id: herdr
+  name: 'dsh-herdr'
+  config:
+    connections:
+      - label: US / work
+        remote: dev-us
+        session: work
+      - label: Dev / work
+        remote: dev
+        session: work
 ```
 
 ## 故障排查
@@ -90,8 +127,10 @@ var COMMAND = "herdr --remote dev --session work";
 插件会把最近一次的状态写进页面的 `localStorage`，键名 `dsh-herdr:state`，内容类似：
 
 ```json
-{"t":"2026-11-07T06:20:00.000Z","sessionId":"session-1f07ac81-…","service":"webTerminals","assetsReady":true,"modelId":"b7c1…","contentId":"herdr:0","phase":"failed","error":"terminal/unavailable: …"}
+{"t":"2026-11-07T06:20:00.000Z","sessionId":"session-1f07ac81-…","service":"webTerminals","assetsReady":true,"modelId":"b7c1…","contentId":"herdr:0:0","phase":"failed","error":"terminal/unavailable: …","connection":"US / work","command":"herdr --remote dev-us --session work"}
 ```
+
+`contentId` 的格式是 `herdr:<连接序号>:<终端序号>`。
 
 它只写在同一个 DSH 页面来源里，不上传、不跨站。**遇到「页面空白 / 连接失败」时，把这个键的值一起发出来**，就能直接看到插件解析到的会话 id、PTY 阶段和宿主给的原始错误，不用再猜。
 
