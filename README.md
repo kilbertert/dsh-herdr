@@ -78,9 +78,19 @@ var COMMAND = "herdr --remote dev --session work";
 | 页面显示「没有提供宿主终端服务」 | 当前 DSH 部署没有 `ctx.webTerminals`（web profile 应该有）。 |
 | 页面打开了但 herdr 没启动 | 终端还没拿到输入控制权（`writable`）。点「重新执行」。 |
 | 侧栏里没有 Herdr 入口 | `ctx.slots` 服务不可用（DSH 版本过旧），或插件没启用。看 DSH 日志里有没有 `slots 服务不可用` 的告警。 |
-| 终端能打开但工具条上的会话是 `herdr` | 宿主没有发布当前会话。插件按 `ctx.uiSession.current` → `ctx.sidebarRight.mounted` → `sessions.list` 里 `retainedBy.mainView > 0` 的会话依次解析，全都没有时才回退到字面量 `herdr`。PTY 一样能跑，只是不归属某个 DSH 会话。 |
+| 终端能打开但工具条上的会话是 `herdr` | 宿主没有发布当前会话。插件按 `ctx.uiSession.current` → `ctx.sidebarRight.mounted` → `sessions.list` 里 `retainedBy.mainView > 0` 的会话 → `localStorage` 的 `dsh.sessions.current` 依次解析，全都没有时才回退到字面量 `herdr`。PTY 一样能跑，只是不归属某个 DSH 会话。 |
 | 状态显示「连接失败：…」 | 冒号后面是宿主终端服务给出的原始错误（`state.error`），按它定位。 |
 | 主题色不对 | 颜色是从页面的 `--dsw-*` CSS 变量读的，跟随 DSH 主题。 |
+
+## 诊断记录
+
+插件会把最近一次的状态写进页面的 `localStorage`，键名 `dsh-herdr:state`，内容类似：
+
+```json
+{"t":"2026-11-07T06:20:00.000Z","sessionId":"session-1f07ac81-…","service":"webTerminals","assetsReady":true,"modelId":"b7c1…","contentId":"herdr:0","phase":"failed","error":"terminal/unavailable: …"}
+```
+
+它只写在同一个 DSH 页面来源里，不上传、不跨站。**遇到「页面空白 / 连接失败」时，把这个键的值一起发出来**，就能直接看到插件解析到的会话 id、PTY 阶段和宿主给的原始错误，不用再猜。
 
 ## xterm 资源从哪来
 
@@ -108,3 +118,4 @@ DSH profile 用的是 pnpm `nodeLinker: hoisted`，所以通常第 3 步就能�
 - `/herdr` 路由只暴露 3 个白名单文件，其他路径一律 404。
 - 路由带连接层校验（`ctx.connection.requestRejection`），非本机浏览器请求会被拒。
 - 插件不读写任何凭据文件，也不保存 herdr 的会话内容。
+- 唯一持久化的是上面那个 `localStorage` 诊断键，且只存在于本机 DSH 页面。
